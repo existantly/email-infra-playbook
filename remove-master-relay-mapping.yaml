@@ -13,13 +13,13 @@
       when: mail_domain is not defined or mail_domain | length == 0
 
     - name: Remove relay mapping from relay_by_sender file
-      ansible.builtin.lineinfile:
-        path: /etc/postfix/relay_by_sender
-        regexp: '^@{{ mail_domain | replace(".", "\\.") }}\s'
-        state: absent
-      notify: 
+      ansible.builtin.shell: |
+        sed -i '/^@{{ mail_domain | replace(".", "\\.") }}\s/d' /etc/postfix/relay_by_sender
+      notify:
       - Run postmap
       - Restart postfix
+
+
     - name: Debug mail_domain value
       ansible.builtin.debug:
         msg: "mail_domain is: '{{ mail_domain }}'"
