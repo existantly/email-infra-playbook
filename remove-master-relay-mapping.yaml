@@ -15,8 +15,7 @@
     - name: Remove relay mapping from relay_by_sender file
       ansible.builtin.lineinfile:
         path: /etc/postfix/relay_by_sender
-        # Use \s* to account for any number of spaces or tabs after the domain
-        regexp: '^@{{ mail_domain | replace(".", "\\.") }}(\s+|$).*'
+        regexp: '^@{{ mail_domain | replace(".", "\\.") }}\s.*'
         state: absent
       notify: 
       - Run postmap
