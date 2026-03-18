@@ -20,6 +20,9 @@
       notify: 
       - Run postmap
       - Restart postfix
+    - name: Debug mail_domain value
+      ansible.builtin.debug:
+        msg: "mail_domain is: '{{ mail_domain }}'"
 
   handlers:
     - name: Run postmap
