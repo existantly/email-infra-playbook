@@ -1,11 +1,8 @@
----
 - name: Remove Domain Mapping from Master Relay
   hosts: all
   become: true
   vars:
-    # Ensure these are passed from NestJS
     mail_domain: "{{ target_domain }}"
-
   tasks:
     - name: "CRITICAL SAFETY: Abort if mail_domain is empty"
       ansible.builtin.fail:
@@ -23,15 +20,9 @@
       - Run postmap
       - Restart postfix
 
-
-    - name: Debug mail_domain value
-      ansible.builtin.debug:
-        msg: "mail_domain is: '{{ mail_domain }}'"
-
   handlers:
     - name: Run postmap
       ansible.builtin.command: postmap /etc/postfix/relay_by_sender
-
     - name: Restart postfix
       ansible.builtin.systemd:
         name: postfix
