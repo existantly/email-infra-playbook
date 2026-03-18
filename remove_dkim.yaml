@@ -3,16 +3,22 @@
   hosts: all
   become: true
   vars:
-    # Passed from NestJS
     mail_domain: "{{ target_domain }}"
     selector: "relay"
-    dkim_dir: "/var/lib/opendkim/keys/{{ mail_domain }}"
 
   tasks:
-    - name: Remove DKIM directory and keys
+    - name: "CRITICAL SAFETY: Abort if mail_domain is empty"
+      ansible.builtin.fail:
+        msg: "The variable 'mail_domain' is empty. Task aborted to prevent wiping the /keys/ directory!"
+      when: mail_domain is not defined or mail_domain | length == 0
+
+    - name: Remove the specific domain folder
       ansible.builtin.file:
-        path: "{{ dkim_dir }}"
+        # We explicitly define the full path to the sub-folder
+        path: "/var/lib/opendkim/keys/{{ mail_domain }}"
         state: absent
+      # Extra safety: ensure we aren't accidentally trying to delete the parent
+      when: mail_domain != "" and mail_domain != "/"
 
     - name: Remove entry from SigningTable
       ansible.builtin.lineinfile:
@@ -33,7 +39,7 @@
         block: ""
         state: absent
 
-    - name: Restart OpenDKIM to apply changes
+    - name: Restart OpenDKIM
       ansible.builtin.service:
         name: opendkim
         state: restarted
