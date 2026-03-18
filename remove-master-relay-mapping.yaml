@@ -12,9 +12,13 @@
         msg: "The variable 'mail_domain' is empty. Task aborted to prevent accidental file corruption!"
       when: mail_domain is not defined or mail_domain | length == 0
 
+    - name: Escape domain for sed
+      ansible.builtin.set_fact:
+        escaped_domain: "{{ mail_domain | replace('.', '\\.') }}"
+
     - name: Remove relay mapping from relay_by_sender file
       ansible.builtin.shell: |
-        sed -i '/^@{{ mail_domain | replace(".", "\\.") }}\s/d' /etc/postfix/relay_by_sender
+        sed -i '/^@{{ escaped_domain }}\s/d' /etc/postfix/relay_by_sender
       notify:
       - Run postmap
       - Restart postfix
