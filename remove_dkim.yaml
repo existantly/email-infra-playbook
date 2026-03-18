@@ -1,0 +1,44 @@
+---
+- name: Remove Domain DKIM Setup
+  hosts: all
+  become: true
+  vars:
+    # Passed from NestJS
+    mail_domain: "{{ target_domain }}"
+    selector: "relay"
+    dkim_dir: "/var/lib/opendkim/keys/{{ mail_domain }}"
+
+  tasks:
+    - name: Remove DKIM directory and keys
+      ansible.builtin.file:
+        path: "{{ dkim_dir }}"
+        state: absent
+
+    - name: Remove entry from SigningTable
+      ansible.builtin.lineinfile:
+        path: /etc/opendkim/SigningTable
+        regexp: ".*@{{ mail_domain | replace('.', '\\.') }}.*"
+        state: absent
+
+    - name: Remove entry from KeyTable
+      ansible.builtin.lineinfile:
+        path: /etc/opendkim/KeyTable
+        regexp: "^{{ selector }}\\._domainkey\\.{{ mail_domain | replace('.', '\\.') }}.*"
+        state: absent
+
+    - name: Remove domain from TrustedHosts block
+      ansible.builtin.blockinfile:
+        path: /etc/opendkim/TrustedHosts
+        marker: "# {mark} ANSIBLE MANAGED BLOCK {{ mail_domain }}"
+        block: ""
+        state: absent
+
+    - name: Restart OpenDKIM to apply changes
+      ansible.builtin.service:
+        name: opendkim
+        state: restarted
+
+    - name: Restart Postfix
+      ansible.builtin.service:
+        name: postfix
+        state: restarted
