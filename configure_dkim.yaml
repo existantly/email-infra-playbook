@@ -8,7 +8,7 @@
     dkim_private_key: "{{ injected_private_key }}"
     parent_relay_ip: "{{ parent_relay_ip }}"
     
-    selector: "relay"
+    selector: "node"
     dkim_dir: "/var/lib/opendkim/keys/{{ mail_domain }}"
 
   tasks:
