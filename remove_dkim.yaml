@@ -4,7 +4,7 @@
   become: true
   vars:
     mail_domain: "{{ target_domain }}"
-    selector: "relay"
+    selector: "node"
 
   tasks:
     - name: "CRITICAL SAFETY: Abort if mail_domain is empty"
