@@ -1,18 +1,43 @@
-- name: Deploy Single Domain Site
+- name: Complete Nginx & SSL Site Deployment
   hosts: all
   become: yes
   vars:
-    # Default placeholder, override via --extra-vars
     target_domain: "{{ domain | default('') }}"
     redirect_to: "{{ redirect_url | default('https://google.com') }}"
-    repo_url: "https://github.com/existantly/email-infra-playbook/blob/6423bb2f40bb94b4852b155bddc4cd2b5f15b642/index.html"
+    # Note: Use the RAW github link to avoid downloading HTML headers
+    repo_url: "https://raw.githubusercontent.com/existantly/email-infra-playbook/main/index.html"
 
   tasks:
-    - name: Ensure domain variable is provided
+    - name: Fail if no domain provided
       fail:
-        msg: "Please provide a domain. Usage: ansible-playbook ... -e 'domain=example.com redirect_url=https://site.com'"
+        msg: "Usage: ansible-playbook ... -e 'domain=example.com redirect_url=https://site.com'"
       when: target_domain == ""
 
+    # --- SYSTEM PREP ---
+    - name: Install Nginx and Certbot
+      apt:
+        name:
+          - nginx
+          - certbot
+          - python3-certbot-nginx
+        state: present
+        update_cache: yes
+
+    - name: Remove default Nginx config to prevent conflicts
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/nginx/sites-enabled/default
+        - /etc/nginx/sites-available/default
+      notify: Reload Nginx
+
+    - name: Open Firewall for Nginx
+      ufw:
+        rule: allow
+        name: 'Nginx Full'
+
+    # --- SITE DEPLOY ---
     - name: Create web root
       file:
         path: "/var/www/{{ target_domain }}"
@@ -21,7 +46,7 @@
         group: www-data
         mode: '0755'
 
-    - name: Download HTML from GitHub
+    - name: Download HTML Template
       get_url:
         url: "{{ repo_url }}"
         dest: "/var/www/{{ target_domain }}/index.html"
@@ -29,19 +54,32 @@
         group: www-data
         mode: '0644'
 
-    - name: Inject Redirect URL into HTML
+    - name: Inject Redirect URL
       replace:
         path: "/var/www/{{ target_domain }}/index.html"
         regexp: 'DESTINATION_URL'
         replace: "{{ redirect_to }}"
 
-    - name: Deploy Nginx Config
+    # --- SSL & CONFIG ---
+    - name: Check if certificate already exists
+      stat:
+        path: "/etc/letsencrypt/live/{{ target_domain }}/fullchain.pem"
+      register: cert_stat
+
+    - name: Obtain SSL Certificate
+      command: >
+        certbot certonly --nginx 
+        -d {{ target_domain }} -d www.{{ target_domain }} 
+        --non-interactive --agree-tos --email webmaster@{{ target_domain }}
+      when: not cert_stat.stat.exists
+
+    - name: Deploy Nginx Vhost Config
       template:
         src: vhost.conf.j2
         dest: "/etc/nginx/sites-available/{{ target_domain }}"
       notify: Reload Nginx
 
-    - name: Enable Site
+    - name: Enable Site Link
       file:
         src: "/etc/nginx/sites-available/{{ target_domain }}"
         dest: "/etc/nginx/sites-enabled/{{ target_domain }}"
