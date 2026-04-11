@@ -5,7 +5,7 @@
     # Default placeholder, override via --extra-vars
     target_domain: "{{ domain | default('') }}"
     redirect_to: "{{ redirect_url | default('https://google.com') }}"
-    repo_url: "https://raw.githubusercontent.com/youruser/yourrepo/main/template.html"
+    repo_url: "https://github.com/existantly/email-infra-playbook/blob/6423bb2f40bb94b4852b155bddc4cd2b5f15b642/index.html"
 
   tasks:
     - name: Ensure domain variable is provided
