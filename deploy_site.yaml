@@ -5,8 +5,8 @@
     target_domain: "{{ domain | default('') }}"
     redirect_to: "{{ redirect_url | default('https://google.com') }}"
     # Point these to the RAW versions of your files
-    html_source: "https://github.com/existantly/email-infra-playbook/blob/32b5e1f63d2db99d397401a8b61453d9f111dbc6/index.html"
-    nginx_source: "https://github.com/existantly/email-infra-playbook/blob/334d53fc5210ff3c1189372588b1076ffcd99b33/vhost.conf.j2"
+    html_source: "https://raw.githubusercontent.com/existantly/email-infra-playbook/refs/heads/main/index.html"
+    nginx_source: "https://raw.githubusercontent.com/existantly/email-infra-playbook/refs/heads/main/vhost.conf"
 
   tasks:
     - name: Pre-check | Ensure domain variable is set
