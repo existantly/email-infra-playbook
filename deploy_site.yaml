@@ -54,15 +54,7 @@
         path: "/var/www/{{ target_domain }}/index.html"
         regexp: 'DESTINATION_URL'
         replace: "{{ redirect_to }}"
-
-    - name: SSL | Obtain Certificate
-      command: >
-        certbot certonly --nginx 
-        -d {{ target_domain }} -d www.{{ target_domain }} 
-        --non-interactive --agree-tos --email admin@{{ target_domain }}
-      args:
-        creates: "/etc/letsencrypt/live/{{ target_domain }}/fullchain.pem"
-
+        
     - name: Nginx | Download Vhost Config from GitHub
       get_url:
         url: "{{ nginx_source }}"
@@ -80,6 +72,14 @@
         dest: "/etc/nginx/sites-enabled/{{ target_domain }}"
         state: link
       notify: Reload Nginx
+
+    - name: SSL | Obtain Certificate
+      command: >
+        certbot certonly --nginx 
+        -d {{ target_domain }} -d www.{{ target_domain }} 
+        --non-interactive --agree-tos --email admin@{{ target_domain }}
+      args:
+        creates: "/etc/letsencrypt/live/{{ target_domain }}/fullchain.pem"
 
   handlers:
     - name: Reload Nginx
