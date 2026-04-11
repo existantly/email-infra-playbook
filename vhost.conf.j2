@@ -1,13 +1,37 @@
 server {
     listen 80;
+    listen [::]:80;
     server_name TEMPLATE_DOMAIN www.TEMPLATE_DOMAIN;
+
+    # Redirect all HTTP traffic to HTTPS
     return 301 https://$host$request_uri;
 }
+
 server {
     listen 443 ssl;
+    listen [::]:443 ssl;
     server_name TEMPLATE_DOMAIN www.TEMPLATE_DOMAIN;
+
+    # Path to the website files
     root /var/www/TEMPLATE_DOMAIN;
+    index index.html;
+
+    # SSL configuration (Certbot paths)
     ssl_certificate /etc/letsencrypt/live/TEMPLATE_DOMAIN/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/TEMPLATE_DOMAIN/privkey.pem;
-    # ... rest of config
+
+    # Standard SSL optimizations
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    location / {
+        # Serve the index.html or 404
+        try_files $uri $uri/ =404;
+    }
+
+    # Optional: Deny access to hidden files
+    location ~ /\. {
+        deny all;
+    }
 }
