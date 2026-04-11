@@ -1,0 +1,55 @@
+- name: Deploy Single Domain Site
+  hosts: all
+  become: yes
+  vars:
+    # Default placeholder, override via --extra-vars
+    target_domain: "{{ domain | default('') }}"
+    redirect_to: "{{ redirect_url | default('https://google.com') }}"
+    repo_url: "https://raw.githubusercontent.com/youruser/yourrepo/main/template.html"
+
+  tasks:
+    - name: Ensure domain variable is provided
+      fail:
+        msg: "Please provide a domain. Usage: ansible-playbook ... -e 'domain=example.com redirect_url=https://site.com'"
+      when: target_domain == ""
+
+    - name: Create web root
+      file:
+        path: "/var/www/{{ target_domain }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
+
+    - name: Download HTML from GitHub
+      get_url:
+        url: "{{ repo_url }}"
+        dest: "/var/www/{{ target_domain }}/index.html"
+        owner: www-data
+        group: www-data
+        mode: '0644'
+
+    - name: Inject Redirect URL into HTML
+      replace:
+        path: "/var/www/{{ target_domain }}/index.html"
+        regexp: 'DESTINATION_URL'
+        replace: "{{ redirect_to }}"
+
+    - name: Deploy Nginx Config
+      template:
+        src: vhost.conf.j2
+        dest: "/etc/nginx/sites-available/{{ target_domain }}"
+      notify: Reload Nginx
+
+    - name: Enable Site
+      file:
+        src: "/etc/nginx/sites-available/{{ target_domain }}"
+        dest: "/etc/nginx/sites-enabled/{{ target_domain }}"
+        state: link
+      notify: Reload Nginx
+
+  handlers:
+    - name: Reload Nginx
+      service:
+        name: nginx
+        state: reloaded
