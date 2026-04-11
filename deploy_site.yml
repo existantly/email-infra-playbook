@@ -5,7 +5,7 @@
     target_domain: "{{ domain | default('') }}"
     redirect_to: "{{ redirect_url | default('https://google.com') }}"
     # Note: Use the RAW github link to avoid downloading HTML headers
-    repo_url: "https://raw.githubusercontent.com/existantly/email-infra-playbook/main/index.html"
+    repo_url: "https://github.com/existantly/email-infra-playbook/blob/69cf3849ec21e1771fa7d92a75999cdfe5c19014/index.html"
 
   tasks:
     - name: Fail if no domain provided
