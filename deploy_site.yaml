@@ -87,7 +87,7 @@
       get_url:
         url: "{{ nginx_source }}"
         dest: "/etc/nginx/sites-available/{{ target_domain }}"
-      force: yes
+        force: yes
 
     - name: Nginx | Customize Vhost with Domain
       replace:
