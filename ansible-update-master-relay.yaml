@@ -12,7 +12,7 @@
       ansible.builtin.lineinfile:
         path: /etc/postfix/relay_by_sender
         # The '.*' at the end is key: it matches the domain AND anything following it
-        regexp: '^@{{ mail_domain | replace(".", "\\.") }}'
+        regexp: '^@{{ mail_domain | replace(".", "\\.") }}(\s+.*)?$'
         line: "@{{ mail_domain }}                [{{ relay_ip }}]:25"
         state: present
         create: yes
