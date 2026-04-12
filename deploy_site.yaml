@@ -75,14 +75,6 @@
         name: nginx
         state: reloaded
 
-    - name: SSL | Obtain Certificate via Webroot
-      command: >
-        certbot certonly --webroot -w /var/www/{{ target_domain }}
-        -d {{ target_domain }} -d www.{{ target_domain }}
-        --non-interactive --agree-tos --email admin@{{ target_domain }}
-      args:
-        creates: "/etc/letsencrypt/live/{{ target_domain }}/fullchain.pem"
-
     - name: Nginx | Download FINAL SSL Vhost Config from GitHub
       get_url:
         url: "{{ nginx_source }}"
@@ -94,6 +86,17 @@
         path: "/etc/nginx/sites-available/{{ target_domain }}"
         regexp: 'TEMPLATE_DOMAIN'
         replace: "{{ target_domain }}"
+
+
+    - name: SSL | Obtain Certificate via Webroot
+      command: >
+        certbot certonly --webroot -w /var/www/{{ target_domain }}
+        -d {{ target_domain }} -d www.{{ target_domain }}
+        --cert-name {{ target_domain }}
+        --keep-until-expiring
+        --non-interactive --agree-tos --email admin@{{ target_domain }}
+      args:
+        creates: "/etc/letsencrypt/live/{{ target_domain }}/fullchain.pem"
 
     - name: Nginx | Final Reload
       service:
