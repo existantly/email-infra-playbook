@@ -4,7 +4,6 @@
   vars:
     target_domain: "{{ domain | default('') }}"
     redirect_to: "{{ redirect_url | default('https://google.com') }}"
-    # Point these to the RAW versions of your files
     html_source: "https://raw.githubusercontent.com/existantly/email-infra-playbook/refs/heads/main/index.html"
     nginx_source: "https://raw.githubusercontent.com/existantly/email-infra-playbook/refs/heads/main/vhost.conf"
 
@@ -54,11 +53,41 @@
         path: "/var/www/{{ target_domain }}/index.html"
         regexp: 'DESTINATION_URL'
         replace: "{{ redirect_to }}"
-        
-    - name: Nginx | Download Vhost Config from GitHub
+
+    - name: SSL | Create temporary HTTP-only config for validation
+      copy:
+        dest: "/etc/nginx/sites-available/{{ target_domain }}"
+        content: |
+          server {
+              listen 80;
+              server_name {{ target_domain }} www.{{ target_domain }};
+              root /var/www/{{ target_domain }};
+          }
+
+    - name: Nginx | Enable temporary site
+      file:
+        src: "/etc/nginx/sites-available/{{ target_domain }}"
+        dest: "/etc/nginx/sites-enabled/{{ target_domain }}"
+        state: link
+
+    - name: Nginx | Reload for SSL Challenge
+      service:
+        name: nginx
+        state: reloaded
+
+    - name: SSL | Obtain Certificate via Webroot
+      command: >
+        certbot certonly --webroot -w /var/www/{{ target_domain }}
+        -d {{ target_domain }} -d www.{{ target_domain }}
+        --non-interactive --agree-tos --email admin@{{ target_domain }}
+      args:
+        creates: "/etc/letsencrypt/live/{{ target_domain }}/fullchain.pem"
+
+    - name: Nginx | Download FINAL SSL Vhost Config from GitHub
       get_url:
         url: "{{ nginx_source }}"
         dest: "/etc/nginx/sites-available/{{ target_domain }}"
+      force: yes
 
     - name: Nginx | Customize Vhost with Domain
       replace:
@@ -66,20 +95,10 @@
         regexp: 'TEMPLATE_DOMAIN'
         replace: "{{ target_domain }}"
 
-    - name: Nginx | Enable Site
-      file:
-        src: "/etc/nginx/sites-available/{{ target_domain }}"
-        dest: "/etc/nginx/sites-enabled/{{ target_domain }}"
-        state: link
-      notify: Reload Nginx
-
-    - name: SSL | Obtain Certificate
-      command: >
-        certbot certonly --nginx 
-        -d {{ target_domain }} -d www.{{ target_domain }} 
-        --non-interactive --agree-tos --email admin@{{ target_domain }}
-      args:
-        creates: "/etc/letsencrypt/live/{{ target_domain }}/fullchain.pem"
+    - name: Nginx | Final Reload
+      service:
+        name: nginx
+        state: restarted
 
   handlers:
     - name: Reload Nginx
