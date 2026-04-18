@@ -1,0 +1,35 @@
+- name: Manage Postfix Relay By Sender map entry
+  hosts: all
+  become: true
+  vars:
+    transport_file: /etc/postfix/relay_by_sender
+    full_domain: "@{{ domain }}"
+
+  tasks:
+    - name: Validate required variables
+      fail:
+        msg: "Both 'domain' and 'target' variables are required. Use -e 'domain=example.com target=[1.2.3.4]:25'"
+      when: domain is not defined or target is not defined
+
+    - name: Add or update relay by sender map entry
+      lineinfile:
+        path: "{{ transport_file }}"
+        regexp: '^@{{ domain | regex_escape }}\s'
+        line: "{{ full_domain }}\t{{ target }}"
+        state: present
+        backup: yes
+      register: transport_updated
+
+    - name: Rebuild postfix relay by sender map
+      command: postmap "{{ transport_file }}"
+      when: transport_updated.changed
+
+    - name: Reload postfix
+      service:
+        name: postfix
+        state: reloaded
+      when: transport_updated.changed
+
+    - name: Show result
+      debug:
+        msg: "{{ 'Updated' if transport_updated.changed else 'No change — entry already exists with same value' }}: {{ full_domain }} → {{ target }}"
