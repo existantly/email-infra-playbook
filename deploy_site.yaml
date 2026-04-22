@@ -101,7 +101,7 @@
     - name: SSL | Obtain certificate via webroot
       command: >
         certbot certonly --webroot -w /var/www/{{ target_domain }}
-        -d {{ target_domain }} -d www.{{ target_domain }}
+        -d {{ target_domain }}
         --cert-name {{ target_domain }}
         --keep-until-expiring
         --non-interactive --agree-tos --email admin@{{ target_domain }}
