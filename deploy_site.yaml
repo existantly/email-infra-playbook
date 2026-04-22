@@ -30,7 +30,7 @@
     - name: System | Open Ports 80 and 443
       ufw:
         rule: allow
-        name: 'Nginx Full'
+        name: "Nginx Full"
 
     - name: Web | Create document root
       file:
@@ -38,7 +38,7 @@
         state: directory
         owner: www-data
         group: www-data
-        mode: '0755'
+        mode: "0755"
 
     - name: Web | Download HTML from GitHub
       get_url:
@@ -46,15 +46,17 @@
         dest: "/var/www/{{ target_domain }}/index.html"
         owner: www-data
         group: www-data
-        mode: '0644'
+        mode: "0644"
 
     - name: Web | Inject Redirect URL into HTML
       replace:
         path: "/var/www/{{ target_domain }}/index.html"
-        regexp: 'DESTINATION_URL'
+        regexp: "DESTINATION_URL"
         replace: "{{ redirect_to }}"
 
-    - name: SSL | Create temporary HTTP-only config for validation
+    # ── PHASE 1: Temporary HTTP-only config so certbot can do webroot challenge ──
+
+    - name: SSL | Write temporary HTTP-only vhost for ACME challenge
       copy:
         dest: "/etc/nginx/sites-available/{{ target_domain }}"
         content: |
@@ -62,6 +64,10 @@
               listen 80;
               server_name {{ target_domain }} www.{{ target_domain }};
               root /var/www/{{ target_domain }};
+
+              location /.well-known/acme-challenge/ {
+                  allow all;
+              }
           }
 
     - name: Nginx | Enable temporary site
@@ -70,25 +76,18 @@
         dest: "/etc/nginx/sites-enabled/{{ target_domain }}"
         state: link
 
-    - name: Nginx | Reload for SSL Challenge
+    - name: Nginx | Test config before reload
+      command: nginx -t
+      changed_when: false
+
+    - name: Nginx | Reload for ACME challenge
       service:
         name: nginx
         state: reloaded
 
-    - name: Nginx | Download FINAL SSL Vhost Config from GitHub
-      get_url:
-        url: "{{ nginx_source }}"
-        dest: "/etc/nginx/sites-available/{{ target_domain }}"
-        force: yes
+    # ── PHASE 2: Obtain certificate while HTTP vhost is still active ──
 
-    - name: Nginx | Customize Vhost with Domain
-      replace:
-        path: "/etc/nginx/sites-available/{{ target_domain }}"
-        regexp: 'TEMPLATE_DOMAIN'
-        replace: "{{ target_domain }}"
-
-
-    - name: SSL | Obtain Certificate via Webroot
+    - name: SSL | Obtain certificate via webroot
       command: >
         certbot certonly --webroot -w /var/www/{{ target_domain }}
         -d {{ target_domain }} -d www.{{ target_domain }}
@@ -98,10 +97,28 @@
       args:
         creates: "/etc/letsencrypt/live/{{ target_domain }}/fullchain.pem"
 
-    - name: Nginx | Final Reload
+    # ── PHASE 3: Deploy final SSL vhost now that the cert exists ──
+
+    - name: Nginx | Download final SSL vhost config
+      get_url:
+        url: "{{ nginx_source }}"
+        dest: "/etc/nginx/sites-available/{{ target_domain }}"
+        force: yes
+
+    - name: Nginx | Substitute domain placeholder in vhost
+      replace:
+        path: "/etc/nginx/sites-available/{{ target_domain }}"
+        regexp: "TEMPLATE_DOMAIN"
+        replace: "{{ target_domain }}"
+
+    - name: Nginx | Test final config before reload
+      command: nginx -t
+      changed_when: false
+
+    - name: Nginx | Reload with final SSL config
       service:
         name: nginx
-        state: restarted
+        state: reloaded
 
   handlers:
     - name: Reload Nginx
