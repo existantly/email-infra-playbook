@@ -6,6 +6,7 @@
     redirect_to: "{{ redirect_url | default('https://google.com') }}"
     html_source: "https://raw.githubusercontent.com/existantly/email-infra-playbook/refs/heads/main/index.html"
     nginx_source: "https://raw.githubusercontent.com/existantly/email-infra-playbook/refs/heads/main/vhost.conf"
+    company_name: "{{ company_name | default('') }}"
 
   tasks:
     - name: Pre-check | Ensure domain variable is set
@@ -53,6 +54,12 @@
         path: "/var/www/{{ target_domain }}/index.html"
         regexp: "DESTINATION_URL"
         replace: "{{ redirect_to }}"
+        
+    - name: Replace COMPANY_NAME in index.html
+      replace:
+        path: "/var/www/{{ target_domain }}/index.html"
+        regexp: "COMPANY_NAME"
+        replace: "{{ company_name }}"
 
     # ── PHASE 1: Temporary HTTP-only config so certbot can do webroot challenge ──
 
