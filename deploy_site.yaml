@@ -60,7 +60,11 @@
         path: "/var/www/{{ target_domain }}/index.html"
         regexp: "COMPANY_NAME"
         replace: "{{ company }}"
-
+  
+    - name: Debug company var
+      debug:
+        msg: "company = '{{ company }}'"
+        
     # ── PHASE 1: Temporary HTTP-only config so certbot can do webroot challenge ──
 
     - name: SSL | Write temporary HTTP-only vhost for ACME challenge
