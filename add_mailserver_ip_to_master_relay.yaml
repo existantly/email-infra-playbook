@@ -1,1 +1,20 @@
+---
+- name: Manage Postfix mynetworks file
+  hosts: all
+  become: true
+  vars:
+    new_ip: "192.00.00.00"  # The IP you want to append
 
+  tasks:
+    - name: Ensure the new IP is present in the networks file
+      ansible.builtin.lineinfile:
+        path: /etc/postfix/mynetworks
+        line: "{{ new_ip }}"
+        state: present
+      notify: Reload Postfix
+
+  handlers:
+    - name: Reload Postfix
+      ansible.builtin.service:
+        name: postfix
+        state: reloaded
