@@ -27,17 +27,15 @@
         path: "{{ mailcow_dir }}/mailcow.conf"
       register: mailcow_conf
 
-    - name: Generate Mailcow config file
-      ansible.builtin.command:
-        cmd: ./generate_config.sh
+    - name: Generate Mailcow config file (Non-Interactive)
+      ansible.builtin.shell:
+        cmd: "set -o pipefail && yes '' | ./generate_config.sh"
         chdir: "{{ mailcow_dir }}"
+        executable: /bin/bash
       environment:
         MAILCOW_HOSTNAME: "mail.{{ myDomain }}"
         MAILCOW_TZ: "UTC"
         MAILCOW_BRANCH: "master"
-      # interactive generation defaults to non-interactive if input isn't requested,
-      # but generate_config.sh expects a stdin tweak or pre-existing logic.
-      # This runs only if mailcow.conf doesn't exist yet.
       when: not mailcow_conf.stat.exists
 
     - name: Apply Custom Optimizations to mailcow.conf
