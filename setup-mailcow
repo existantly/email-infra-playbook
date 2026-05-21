@@ -95,16 +95,17 @@
     - name: Pull Mailcow Docker images
       community.docker.docker_compose_v2:
         project_src: "{{ mailcow_dir }}"
-        action: pull
+        state: present   # Required so Ansible knows to parse the file
+        pull: always     # Forces the pull action
 
     - name: Start Mailcow Stack
       community.docker.docker_compose_v2:
         project_src: "{{ mailcow_dir }}"
-        state: present
+        state: present   # Ensures everything is up and running
 
     - name: Stop netfilter-mailcow container
       community.docker.docker_compose_v2:
         project_src: "{{ mailcow_dir }}"
         services:
           - netfilter-mailcow
-        state: absent
+        state: absent    # Stops and removes just this specific service
