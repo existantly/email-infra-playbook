@@ -1,0 +1,108 @@
+---
+- name: Deploy and Optimize Mailcow Dockerized
+  hosts: mail_servers
+  become: true
+  vars:
+    myDomain: "example.com"  # Change this to your actual domain
+    mailcow_dir: "/opt/mailcow-dockerized"
+
+  tasks:
+    - name: Ensure git and pip (for docker SDK) are installed
+      ansible.builtin.package:
+        name:
+          - git
+          - python3-pip
+        state: present
+
+    - name: Clone Mailcow Dockerized repository
+      ansible.builtin.git:
+        repo: 'https://github.com/mailcow/mailcow-dockerized'
+        dest: "{{ mailcow_dir }}"
+        version: master
+        clone: true
+        update: false # Prevents overwriting local changes on re-runs
+
+    - name: Check if mailcow.conf already exists
+      ansible.builtin.stat:
+        path: "{{ mailcow_dir }}/mailcow.conf"
+      register: mailcow_conf
+
+    - name: Generate Mailcow config file
+      ansible.builtin.command:
+        cmd: ./generate_config.sh
+        chdir: "{{ mailcow_dir }}"
+      environment:
+        MAILCOW_HOSTNAME: "mail.{{ myDomain }}"
+        MAILCOW_TZ: "UTC"
+        MAILCOW_BRANCH: "master"
+      # interactive generation defaults to non-interactive if input isn't requested,
+      # but generate_config.sh expects a stdin tweak or pre-existing logic.
+      # This runs only if mailcow.conf doesn't exist yet.
+      when: not mailcow_conf.stat.exists
+
+    - name: Apply Custom Optimizations to mailcow.conf
+      ansible.builtin.lineinfile:
+        path: "{{ mailcow_dir }}/mailcow.conf"
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+      loop:
+        - { regexp: '^SKIP_CLAMD=', line: 'SKIP_CLAMD=y' }
+        - { regexp: '^SKIP_OLEFY=', line: 'SKIP_OLEFY=y' }
+        - { regexp: '^ENABLE_SSL_SNI=', line: 'ENABLE_SSL_SNI=y' }
+        - { regexp: '^SKIP_SOGO=', line: 'SKIP_SOGO=n' }
+        - { regexp: '^SKIP_FTS=', line: 'SKIP_FTS=y' }
+        - { regexp: '^ALLOW_ADMIN_EMAIL_LOGIN=', line: 'ALLOW_ADMIN_EMAIL_LOGIN=y' }
+
+    - name: Create Dovecot configuration directory
+      ansible.builtin.file:
+        path: "{{ mailcow_dir }}/data/conf/dovecot"
+        state: directory
+        mode: '0755'
+
+    - name: Create Dovecot Extra Config for Warm-up tool scaling
+      ansible.builtin.blockinfile:
+        path: "{{ mailcow_dir }}/data/conf/dovecot/extra.conf"
+        create: true
+        mode: '0644'
+        block: |
+          service imap-login {
+            process_limit = 200
+            process_min_avail = 8
+            client_limit = 200
+            vsz_limit = 1G
+            service_count = 0
+          }
+
+          service imap {
+            process_limit = 10000
+          }
+
+          mail_max_userip_connections = 50
+
+          auth_cache_size = 64M
+          auth_cache_ttl = 1 hour
+          auth_cache_negative_ttl = 1 hour
+
+    - name: Increase inotify instance limit for Dovecot mailbox watchers
+      ansible.posix.sysctl:
+        name: fs.inotify.max_user_instances
+        value: '65536'
+        state: present
+        reload: true
+
+    - name: Pull Mailcow Docker images
+      community.docker.docker_compose_v2:
+        project_src: "{{ mailcow_dir }}"
+        action: pull
+
+    - name: Start Mailcow Stack
+      community.docker.docker_compose_v2:
+        project_src: "{{ mailcow_dir }}"
+        state: present
+
+    - name: Stop netfilter-mailcow container
+      community.docker.docker_compose_v2:
+        project_src: "{{ mailcow_dir }}"
+        services:
+          - netfilter-mailcow
+        state: absent
