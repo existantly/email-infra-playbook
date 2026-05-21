@@ -1,6 +1,6 @@
 ---
 - name: Deploy and Optimize Mailcow Dockerized
-  hosts: mail_servers
+  hosts: all
   become: true
   vars:
     myDomain: "example.com"  # Change this to your actual domain
