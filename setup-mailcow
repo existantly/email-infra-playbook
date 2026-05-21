@@ -20,7 +20,8 @@
         dest: "{{ mailcow_dir }}"
         version: master
         clone: true
-        update: false # Prevents overwriting local changes on re-runs
+        force: true   # Forces recovery if files go missing or corrupt
+        update: true  # Ensures script files are fully up-to-date across runs
 
     - name: Check if mailcow.conf already exists
       ansible.builtin.stat:
@@ -29,7 +30,7 @@
 
     - name: Generate Mailcow config file (Non-Interactive)
       ansible.builtin.shell:
-        cmd: "{{ mailcow_dir }}/generate_config.sh <<< '\n\n\n\n'"
+        cmd: "./generate_config.sh <<< '\n\n\n\n'"
         chdir: "{{ mailcow_dir }}"
         executable: /bin/bash
       environment:
@@ -95,17 +96,17 @@
     - name: Pull Mailcow Docker images
       community.docker.docker_compose_v2:
         project_src: "{{ mailcow_dir }}"
-        state: present   # Required so Ansible knows to parse the file
-        pull: always     # Forces the pull action
+        state: present
+        pull: always
 
     - name: Start Mailcow Stack
       community.docker.docker_compose_v2:
         project_src: "{{ mailcow_dir }}"
-        state: present   # Ensures everything is up and running
+        state: present
 
     - name: Stop netfilter-mailcow container
       community.docker.docker_compose_v2:
         project_src: "{{ mailcow_dir }}"
         services:
           - netfilter-mailcow
-        state: absent    # Stops and removes just this specific service
+        state: absent
