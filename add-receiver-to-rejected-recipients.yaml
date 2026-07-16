@@ -1,0 +1,25 @@
+---
+- name: Manage Postfix rejected_recipients blacklist
+  hosts: all
+  become: true
+  vars:
+    # Pass this dynamically via --extra-vars "blocked_target=test@bad-domain.com"
+    blocked_target: "alex@bouncer.test" 
+
+  tasks:
+    - name: Ensure the blocked recipient or domain is present in the blacklist
+      ansible.builtin.lineinfile:
+        path: /etc/postfix/rejected_recipients
+        # Formats: target_email REJECT message
+        line: "{{ blocked_target }}      REJECT Automatically blacklisted via Ansible."
+        state: present
+        create: true  # Creates the file if it doesn't already exist
+        mode: '0664'
+        owner: nobody
+        group: postfix
+      notify: Rebuild Postfix Access DB
+
+  handlers:
+    - name: Rebuild Postfix Access DB
+      ansible.builtin.command:
+        cmd: /usr/sbin/postmap /etc/postfix/rejected_recipients
